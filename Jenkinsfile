@@ -1,62 +1,19 @@
 pipeline {
     agent any
-    
     stages {
-        stage('Vérification') {
+        stage('Build Image') {
             steps {
-                echo '🔍 Vérification du site DGI...'
-                sh '''
-                    echo "=== FICHIERS DGI ==="
-                    ls -la
-                    
-                    echo ""
-                    echo "=== index.html ==="
-                    if [ -f "index.html" ]; then
-                        echo "✅ Fichier présent"
-                        echo "Lignes: $(wc -l < index.html)"
-                        echo "Titre: $(grep -o "<title>.*</title>" index.html || echo "Non trouvé")"
-                    else
-                        echo "❌ Fichier manquant"
-                        exit 1
-                    fi
-                    
-                    echo ""
-                    echo "=== style.css ==="
-                    if [ -f "style.css" ]; then
-                        echo "✅ Fichier présent"
-                        echo "Lignes: $(wc -l < style.css)"
-                    else
-                        echo "⚠️  Fichier manquant"
-                    fi
-                '''
+                // Construit l'image Docker à partir du Dockerfile
+                sh 'docker build -t site-dgi-prod .'
             }
         }
-        
-        stage('Test') {
+        stage('Deploy Container') {
             steps {
-                echo '🧪 Test de déploiement...'
-                sh '''
-                    echo "Simulation déploiement DGI Madagascar..."
-                    echo ""
-                    echo "COMMANDES RÉELLES:"
-                    echo "sudo cp index.html style.css /var/www/html/"
-                    echo "sudo systemctl restart apache2"
-                    echo ""
-                    echo "Pour le test, copie locale:"
-                    mkdir -p /tmp/dgi-test
-                    cp index.html style.css /tmp/dgi-test/ 2>/dev/null || echo "Copie effectuée"
-                    echo "✅ Test terminé"
-                '''
+                // Arrête l'ancien site et lance le nouveau sur le port 8081
+                sh 'docker stop dgi-container || true'
+                sh 'docker rm dgi-container || true'
+                sh 'docker run -d --name dgi-container -p 8081:80 site-dgi-prod'
             }
-        }
-    }
-    
-    post {
-        success {
-            echo '🎉 Pipeline réussi ! Site DGI vérifié.'
-        }
-        failure {
-            echo '❌ Pipeline échoué. Vérifiez les fichiers.'
         }
     }
 }
